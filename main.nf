@@ -13,30 +13,23 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { AMPLISEQ-CBIOPORTAL  } from './workflows/ampliseq-cbioportal'
+include { AMPLISEQ_CBIOPORTAL } from './workflows/ampliseq-cbioportal'
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     NAMED WORKFLOWS FOR PIPELINE
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-//
-// WORKFLOW: Run main analysis pipeline depending on type of input
-//
-workflow CRCHUMCITADEL_AMPLISEQ-CBIOPORTAL {
+workflow CRCHUMCITADEL_AMPLISEQ_CBIOPORTAL {
 
     take:
-    samplesheet // channel: samplesheet read in from --input
+    ch_samplesheet
 
     main:
-
-    //
-    // WORKFLOW: Run pipeline
-    //
-    AMPLISEQ-CBIOPORTAL (
-        samplesheet
-    )
+    AMPLISEQ_CBIOPORTAL(ch_samplesheet)
 }
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -47,12 +40,11 @@ workflow {
 
     main:
 
-    //
-    // WORKFLOW: Run main workflow
-    //
-    CRCHUMCITADEL_AMPLISEQ-CBIOPORTAL (
-        params.input
-    )
+    ch_samplesheet = Channel
+        .fromPath(params.input)
+        .splitCsv(header: true)
+
+    CRCHUMCITADEL_AMPLISEQ_CBIOPORTAL(ch_samplesheet)
 }
 
 /*

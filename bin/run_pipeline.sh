@@ -8,7 +8,8 @@ CLINICAL_PATIENT_SCRIPT="${SCRIPTS_DIR}/clinical_patients_format.py"
 CLINICAL_SAMPLE_SCRIPT="${SCRIPTS_DIR}/clinical_sample_format.py"
 FORMAT_MUTATIONS_SCRIPT="${SCRIPTS_DIR}/format_mutations.py"
 FORMAT_SV_SCRIPT="${SCRIPTS_DIR}/format_sv.py"
-FORMAT_CNA_DEANON_SCRIPT="${SCRIPTS_DIR}/format_cna_deanon.py"  
+FORMAT_CNA_DEANON_SCRIPT="${SCRIPTS_DIR}/format_cna_deanon.py"
+FORMAT_META_SCRIPT="${SCRIPTS_DIR}/format_meta.py"
 
 
 APPTAINER_SIF="/shared/cbioportal/formatting/vcf2maf_ensembl-vep_v1.6.22_2.sif"
@@ -102,3 +103,7 @@ case_list_ids: ${IDS_TAB}
 CEOF
 
 echo "Written: ${OUT_DIR}/case_lists/cases_sequenced.txt, cases_cna.txt and cases_sv.txt (${#SAMPLE_IDS[@]} samples)"
+
+# Generate cBioPortal meta files
+python3.12 "$FORMAT_META_SCRIPT" "optilab_study" "$OUT_DIR"
+echo "Written: meta files to ${OUT_DIR}"
