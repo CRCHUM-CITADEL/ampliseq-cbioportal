@@ -49,7 +49,7 @@ process FORMAT_CNA {
 // ---------------------------------------------------------------------------
 process STUB_MAF {
     tag "${meta.sample_id}"
-
+    
     input:
     tuple val(meta), path(sample_folder)
 
@@ -68,17 +68,17 @@ process STUB_MAF {
 // ---------------------------------------------------------------------------
 process VCF_TO_MAF {
     tag "${meta.sample_id}"
+    label "vcf2maf"
 
     input:
     tuple val(meta), path(sample_folder)
-    path(sif)
     path(vep_data)
+    path(ref_fasta)
 
     output:
     tuple val(meta), path("${meta.sample_id}.maf")
 
     script:
-    def vep_data_abs = vep_data.toAbsolutePath()
     """
     VCF_GZ=\$(find -L "${sample_folder}" -maxdepth 1 -name '*-basespace-pisces.final.vcf.gz' | head -1)
     [ -n "\$VCF_GZ" ] || { echo "ERROR: No VCF found in ${sample_folder}" >&2; exit 1; }
@@ -87,12 +87,10 @@ process VCF_TO_MAF {
 
     MAF_OUT="${meta.sample_id}-basespace-pisces.final.maf"
 
-    apptainer exec \\
-        --bind ${vep_data_abs}:/home/jbellavance/ \\
-        ${sif} vcf2maf.pl \\
+    vcf2maf.pl \\
         --tumor-id "${meta.sample_id}" --cache-version 113 \\
         --ncbi-build GRCh37 --vep-path /opt/conda/bin \\
-        --vep-data ~/ --ref-fasta ~/hg19.fa \\
+        --vep-data ${vep_data} --ref-fasta ${ref_fasta} \\
         --input-vcf "${meta.sample_id}.final.vcf" \\
         --output-maf "\$MAF_OUT"
 

@@ -71,15 +71,18 @@ workflow AMPLISEQ_CBIOPORTAL {
         STUB_MAF(ch_vcf_input)
         ch_maf = STUB_MAF.out
     } else {
-        if (!params.vcf2maf_sif) {
-            error "params.vcf2maf_sif must be set when skip_vcf2maf is false"
+        if (!params.vcf2maf_container) {
+            error "params.vcf2maf_container must be set when skip_vcf2maf is false"
+        }
+        if (!params.ref_fasta) {
+            error "ref_fasta must be set when skip_vcf2maf is false"
         }
         if (!params.vep_data) {
             error "params.vep_data must be set when skip_vcf2maf is false"
         }
-        ch_sif     = Channel.value(file(params.vcf2maf_sif))
         ch_vep     = Channel.value(file(params.vep_data))
-        VCF_TO_MAF(ch_vcf_input, ch_sif, ch_vep)
+        ch_ref_fasta     = Channel.value(file(params.ref_fasta))
+        VCF_TO_MAF(ch_vcf_input, ch_vep, ch_ref_fasta)
         ch_maf = VCF_TO_MAF.out
     }
 
