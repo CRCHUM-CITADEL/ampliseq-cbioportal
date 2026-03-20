@@ -7,27 +7,31 @@
     "items": {
         "type": "object",
         "properties": {
-            "sample": {
+            "group": {
                 "type": "string",
                 "pattern": "^\\S+$",
-                "errorMessage": "Sample name must be provided and cannot contain spaces",
+                "description": "Group or cohort identifier",
+                "meta": ["group"]
+            },
+            "subject_id": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "description": "Patient or subject identifier",
+                "meta": ["subject_id"]
+            },
+            "sample_id": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "description": "Sample identifier used as SAMPLE_ID throughout output files",
                 "meta": ["id"]
             },
-            "fastq_1": {
+            "folder_location": {
                 "type": "string",
-                "format": "file-path",
+                "format": "directory-path",
                 "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 1 must be provided, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
-            },
-            "fastq_2": {
-                "type": "string",
-                "format": "file-path",
-                "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "description": "Path to sample directory containing analysis_*_export.tsv and *-basespace-pisces.final.vcf.gz"
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": ["group", "subject_id", "sample_id", "folder_location"]
     }
 }
