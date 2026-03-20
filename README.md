@@ -2,52 +2,80 @@
 
 ## Introduction
 
-**crchum-citadel/ampliseq-cbioportal** is a bioinformatics pipeline that ...
+**crchum-citadel/ampliseq-cbioportal** formats ampliseq genomic data (VCFs + structural variant TSVs) into cBioPortal-compatible files: mutations (MAF), copy number alterations, structural variants, and clinical data.
 
-<!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
-   major pipeline sections and the types of output it produces. You're giving an overview to someone new
-   to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
--->
-
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
-     workflows use the "tube map" design for that. See https://nf-co.re/docs/guidelines/graphic_design/workflow_diagrams#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->
+Requires Nextflow >= 25.04.0.
 
 ## Usage
 
-> [!NOTE]
-> If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. 
+### 1. Prepare input files
 
-<!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
-     Explain what rows and columns represent. For instance (please edit as appropriate):
-
-First, prepare a samplesheet with your input data that looks as follows:
-
-`samplesheet.csv`:
-
+**Samplesheet** (`samplesheet.csv`):
 ```csv
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
+group,subject_id,sample_id,folder_location
+cohort_A,PATIENT_001,SAMPLE_001,path/to/samples/SAMPLE_001
 ```
 
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
+Each sample folder must contain:
+- `analysis_*_export.tsv` — structural variant / CNA export
+- `*-basespace-pisces.final.vcf.gz` — compressed VCF
 
--->
+**Linking file** (`linking_file.txt`, tab-separated) — maps anonymized → real IDs:
+```
+sample_id	deanon_sample_id
+SAMPLE_001	PATIENT_001
+```
 
-Now, you can run the pipeline using:
+**Patient file** (tab-separated): `patient_id`, `age`, `sex`, `os_status`, `os_months`, `smoking_history`
 
-<!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
+**Sample file** (tab-separated): `num_id`, `sample_id`, `patient_id`, `cancer_type`, `cancer_type_detailed`, `sample_type`, `tumor_site`, `tumor_purity`
+
+### 2. Run the pipeline
 
 ```bash
-nextflow run crchum-citadel/ampliseq-cbioportal \
-   -profile <docker/singularity/.../institute> \
-   --input samplesheet.csv \
-   --outdir <OUTDIR>
+nextflow run main.nf \
+  --input samplesheet.csv \
+  --outdir results/ \
+  --patient_file patient_file.txt \
+  --sample_file sample_file.txt \
+  --linking_file linking_file.txt \
+  --vcf2maf_sif /path/to/vcf2maf_ensembl-vep.sif \
+  --vep_data /path/to/vep_data/ \
+  --study_id my_study
 ```
 
-> [!WARNING]
-> Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/usage/getting_started/configuration#custom-configuration-files).
+Skip VCF → MAF conversion if MAFs already exist:
+```bash
+nextflow run main.nf ... --skip_vcf2maf true
+```
+
+Resume a previous run:
+```bash
+nextflow run main.nf ... -resume
+```
+
+### Running standalone scripts (without Nextflow)
+
+Until the Nextflow workflow DAG is implemented, run the full transformation via:
+
+```bash
+# Edit hardcoded paths at the top of the script first
+bash bin/run_pipeline.sh
+```
+
+Or run individual scripts from within the output directory:
+
+```bash
+cd /path/to/output
+
+python3 /path/to/bin/format_tsv.py       <analysis_export.tsv> <SAMPLE_ID>
+python3 /path/to/bin/format_cna.py       <analysis_export.tsv> <SAMPLE_ID>
+python3 /path/to/bin/format_mutations.py data_mutations.txt    <linking_file>
+python3 /path/to/bin/format_sv.py        data_sv.txt           <linking_file>
+python3 /path/to/bin/format_cna_deanon.py data_cna.txt         <linking_file>
+python3 /path/to/bin/clinical_patients_format.py <patient_file>
+python3 /path/to/bin/clinical_sample_format.py   <sample_file>
+```
 
 ## Credits
 
