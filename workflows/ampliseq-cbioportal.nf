@@ -1,24 +1,12 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
+    IMPORT SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { FORMAT_SV         } from '../modules/local/processes'
-include { FORMAT_CNA        } from '../modules/local/processes'
-include { STUB_MAF          } from '../modules/local/processes'
-include { VCF_TO_MAF        } from '../modules/local/processes'
-include { FILTER_MUTATIONS  } from '../modules/local/processes'
-include { MERGE_SV          } from '../modules/local/processes'
-include { MERGE_CNA         } from '../modules/local/processes'
-include { MERGE_MUTATIONS   } from '../modules/local/processes'
-include { CLINICAL_PATIENTS } from '../modules/local/processes'
-include { CLINICAL_SAMPLES  } from '../modules/local/processes'
-include { DEANON_MUTATIONS  } from '../modules/local/processes'
-include { DEANON_SV         } from '../modules/local/processes'
-include { DEANON_CNA        } from '../modules/local/processes'
-include { WRITE_CASE_LISTS  } from '../modules/local/processes'
-include { WRITE_META        } from '../modules/local/processes'
+include { PER_SAMPLE_FORMAT } from '../subworkflows/local/per_sample_format/main'
+include { MERGE_DEANON      } from '../subworkflows/local/merge_deanon/main'
+include { STUDY_METADATA    } from '../subworkflows/local/study_metadata/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -34,7 +22,7 @@ workflow AMPLISEQ_CBIOPORTAL {
     main:
 
     // -------------------------------------------------------------------------
-    // Build per-sample channel: tuple(meta, sample_folder)
+    // Build per-sample channel: tuple(meta, tsv, sample_folder)
     // -------------------------------------------------------------------------
     ch_samples = ch_samplesheet
         .map { row ->
@@ -55,71 +43,35 @@ workflow AMPLISEQ_CBIOPORTAL {
             tuple(meta, tsv, folder)
         }
 
-    ch_tsv        = ch_samples.map { meta, tsv, folder -> tuple(meta, tsv) }
-    ch_vcf_input  = ch_samples.map { meta, tsv, folder -> tuple(meta, folder) }
+    ch_tsv       = ch_samples.map { meta, tsv, folder -> tuple(meta, tsv) }
+    ch_vcf_input = ch_samples.map { meta, tsv, folder -> tuple(meta, folder) }
 
     // -------------------------------------------------------------------------
-    // Per-sample: SV and CNA formatting (TSV-only steps)
+    // Per-sample: format SV, CNA, and mutations
     // -------------------------------------------------------------------------
-    FORMAT_SV(ch_tsv)
-    FORMAT_CNA(ch_tsv)
+    PER_SAMPLE_FORMAT(ch_tsv, ch_vcf_input)
 
     // -------------------------------------------------------------------------
-    // Per-sample: VCF → MAF (or stub for testing without Apptainer)
-    // -------------------------------------------------------------------------
-    if (params.skip_vcf2maf) {
-        STUB_MAF(ch_vcf_input)
-        ch_maf = STUB_MAF.out
-    } else {
-        if (!params.vcf2maf_container) {
-            error "params.vcf2maf_container must be set when skip_vcf2maf is false"
-        }
-        if (!params.ref_fasta) {
-            error "ref_fasta must be set when skip_vcf2maf is false"
-        }
-        if (!params.vep_data) {
-            error "params.vep_data must be set when skip_vcf2maf is false"
-        }
-        ch_vep     = Channel.value(file(params.vep_data))
-        ch_ref_fasta     = Channel.value(file(params.ref_fasta))
-        VCF_TO_MAF(ch_vcf_input, ch_vep, ch_ref_fasta)
-        ch_maf = VCF_TO_MAF.out
-    }
-
-    // -------------------------------------------------------------------------
-    // Per-sample: filter MAF rows to ampliseq regions
-    // ch_maf = tuple(meta, maf)  +  ch_tsv = tuple(meta, tsv)
-    // join on meta to produce tuple(meta, maf, tsv)
-    // -------------------------------------------------------------------------
-    FILTER_MUTATIONS(ch_maf.join(ch_tsv))
-
-    // -------------------------------------------------------------------------
-    // Collect: merge all per-sample outputs
-    // -------------------------------------------------------------------------
-    MERGE_SV(FORMAT_SV.out.collect())
-    MERGE_CNA(FORMAT_CNA.out.collect())
-    MERGE_MUTATIONS(FILTER_MUTATIONS.out.collect())
-
-    // -------------------------------------------------------------------------
-    // Once: clinical file formatting
-    // -------------------------------------------------------------------------
-    CLINICAL_PATIENTS(Channel.fromPath(params.patient_file))
-    CLINICAL_SAMPLES(Channel.fromPath(params.sample_file))
-
-    // -------------------------------------------------------------------------
-    // Once: deanonymisation
+    // Collect: merge and deanonymise all data types
     // -------------------------------------------------------------------------
     ch_linking = Channel.value(file(params.linking_file))
 
-    DEANON_MUTATIONS(MERGE_MUTATIONS.out, ch_linking)
-    DEANON_SV(MERGE_SV.out, ch_linking)
-    DEANON_CNA(MERGE_CNA.out, ch_linking)
+    MERGE_DEANON(
+        PER_SAMPLE_FORMAT.out.sv.collect(),
+        PER_SAMPLE_FORMAT.out.cna.collect(),
+        PER_SAMPLE_FORMAT.out.mutations.collect(),
+        ch_linking
+    )
 
     // -------------------------------------------------------------------------
-    // Once: write cBioPortal case lists and meta files
+    // Once: clinical files, case lists, and meta files
     // -------------------------------------------------------------------------
-    WRITE_CASE_LISTS(ch_linking, params.study_id)
-    WRITE_META(params.study_id)
+    STUDY_METADATA(
+        Channel.fromPath(params.patient_file),
+        Channel.fromPath(params.sample_file),
+        ch_linking,
+        params.study_id
+    )
 }
 
 /*
