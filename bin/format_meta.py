@@ -15,6 +15,7 @@ name: {study_id}
 short_name: {study_id}
 description: cBioPortal study for {study_id}
 add_global_case_list: true
+reference_genome: hg19
 """,
     "meta_mutations.txt": """\
 cancer_study_identifier: {study_id}
@@ -25,6 +26,7 @@ show_profile_in_analysis_tab: true
 profile_name: Mutations
 profile_description: Mutation data for {study_id}
 data_filename: data_mutations.txt
+gene_panel: gene_panel
 """,
     "meta_sv.txt": """\
 cancer_study_identifier: {study_id}
@@ -35,16 +37,18 @@ show_profile_in_analysis_tab: true
 profile_name: Structural Variants
 profile_description: Structural variant data for {study_id}
 data_filename: data_sv.txt
+gene_panel: ampliseq_focus_fusion
 """,
     "meta_cna.txt": """\
 cancer_study_identifier: {study_id}
 genetic_alteration_type: COPY_NUMBER_ALTERATION
-datatype: DISCRETE
+datatype: DISCRETE_LONG
 stable_id: cna
 show_profile_in_analysis_tab: true
 profile_name: Copy-number alterations
-profile_description: Discrete copy number data for {study_id}
+profile_description: Discrete copy number data for {study_id}. Values: -2 = homozygous deletion; -1 = hemizygous deletion; 0 = neutral / no change; 1 = gain; 2 = high level amplification.
 data_filename: data_cna.txt
+gene_panel: ampliseq_focus_cnv
 """,
     "meta_clinical_patient.txt": """\
 cancer_study_identifier: {study_id}

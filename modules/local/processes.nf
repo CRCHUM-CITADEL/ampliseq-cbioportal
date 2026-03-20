@@ -113,16 +113,13 @@ process FILTER_MUTATIONS {
 
     script:
     """
-    # Strip version comment from MAF so line 1 is the column header
-    sed '1d' "${maf}" > maf_stripped.txt
-
     # Build region set from TSV (Chr col has no chr prefix; MAF Chromosome col has chr prefix)
     # TSV: \$1=Chr \$2=Start \$3=End  |  MAF: \$5=Chromosome \$6=Start_Position \$7=End_Position
     awk '
         NR==FNR { regions["chr" \$1 ":" \$2 "-" \$3] = 1; next }
         FNR==1  { print; next }
         \$5 ":" \$6 "-" \$7 in regions
-    ' "${tsv}" maf_stripped.txt > "${meta.sample_id}_mutations.txt"
+    ' "${tsv}" ${maf} > "${meta.sample_id}_mutations.txt"
     """
 }
 
