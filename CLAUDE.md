@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a Nextflow pipeline (`crchum-citadel/ampliseq-cbioportal`) that formats ampliseq genomic data into cBioPortal-compatible format. Built from nf-core/tools template v3.5.1 but currently in early development — the Nextflow workflow DAG has not been implemented yet (`workflows/` directory does not exist). The core logic lives in standalone scripts in `bin/`.
+This is a Nextflow pipeline (`crchum-citadel/ampliseq-cbioportal`) that formats ampliseq genomic data into cBioPortal-compatible format. Built from nf-core/tools template v3.5.1. The Nextflow workflow DAG is fully implemented in `workflows/ampliseq-cbioportal.nf` with all processes defined in `modules/local/processes.nf`. The core transformation logic lives in standalone scripts in `bin/`, which are also directly runnable outside Nextflow via `bin/run_pipeline.sh`.
 
 ## Running the Pipeline
 
@@ -27,9 +27,19 @@ nextflow run main.nf ... -resume
 
 Requires Nextflow >= 25.04.0. All container paths are Apptainer `.sif` images.
 
+## Generating a Samplesheet
+
+Use `bin/generate_samplesheet.py` to auto-build `samplesheet.csv` from a data directory:
+
+```bash
+python3 bin/generate_samplesheet.py <input_dir> [--output samplesheet.csv]
+```
+
+`input_dir` should contain cohort subdirectories, each holding per-sample folders. The script derives `group` from the cohort directory name, `sample_id` from the `*-basespace-pisces.final.vcf.gz` filename prefix, and `subject_id` from the part of `sample_id` before the first `_`. If `input_dir` contains sample folders directly (no cohort subdirectories), it is treated as a single cohort named after the directory. Folders missing either required file are skipped with a warning.
+
 ## Running the Standalone Transformation Scripts
 
-Until the Nextflow workflow is built, transformation runs via `bin/run_pipeline.sh`. The script contains **hardcoded cluster paths** (`BASE_DIR`, `SCRIPTS_DIR`, `DATA_DIR`, `APPTAINER_SIF`, `LINKING_FILE`) that must be updated for each environment before running.
+As an alternative to Nextflow, the full transformation can be run via `bin/run_pipeline.sh`. The script contains **hardcoded cluster paths** (`BASE_DIR`, `SCRIPTS_DIR`, `DATA_DIR`, `APPTAINER_SIF`, `LINKING_FILE`) that must be updated for each environment before running.
 
 ```bash
 # Edit paths at the top of the script, then:
@@ -49,6 +59,7 @@ python3 /path/to/bin/format_sv.py       data_sv.txt         <linking_file> # dea
 python3 /path/to/bin/format_cna_deanon.py data_cna.txt      <linking_file> # deanonymizes in-place
 python3 /path/to/bin/clinical_patients_format.py <patient_file>            # writes data_clinical_patient.txt
 python3 /path/to/bin/clinical_sample_format.py   <sample_file>             # writes data_clinical_sample.txt
+python3 /path/to/bin/format_meta.py <study_id> [out_dir]                 # writes all meta_*.txt files
 ```
 
 ## Input File Formats
@@ -78,9 +89,13 @@ SAMPLE_001	PATIENT_001
 
 ```
 main.nf                          # Entry point; reads --input CSV, calls AMPLISEQ_CBIOPORTAL workflow
-workflows/                       # Does not exist yet — workflow DAG is unimplemented
+workflows/
+  ampliseq-cbioportal.nf         # Full workflow DAG: per-sample → merge → deanon → clinical → case lists → meta
+modules/local/
+  processes.nf                   # All Nextflow process definitions
 bin/
-  run_pipeline.sh                # Orchestrates full transformation (has hardcoded cluster paths)
+  generate_samplesheet.py        # Auto-builds samplesheet.csv from a data directory
+  run_pipeline.sh                # Orchestrates full transformation outside Nextflow (has hardcoded cluster paths)
   format_tsv.py                  # Extracts FUSION rows → data_sv.txt
   format_cna.py                  # Extracts DUPLICATION/DELETION rows → data_cna.txt (long format)
   format_mutations.py            # Deanonymizes Tumor_Sample_Barcode in data_mutations.txt
@@ -88,6 +103,7 @@ bin/
   format_cna_deanon.py           # Deanonymizes Sample_Id in data_cna.txt
   clinical_patients_format.py    # Formats patient file → data_clinical_patient.txt
   clinical_sample_format.py      # Formats sample file → data_clinical_sample.txt
+  format_meta.py                 # Writes all cBioPortal meta_*.txt files for a study
 test_data/                       # Sample inputs for manual testing
   samplesheet.csv
   linking_file.txt / patient_file.txt / sample_file.txt
@@ -106,7 +122,7 @@ nextflow_schema.json             # Parameter schema for --help and validation
 4. Deanonymization pass: `format_mutations.py`, `format_sv.py`, `format_cna_deanon.py` replace anonymized IDs using linking file
 5. Clinical: `clinical_patients_format.py` + `clinical_sample_format.py` write cBioPortal 5-line-header format files
 6. Case lists: generated in `case_lists/` from deanonymized IDs in linking file
-7. Meta files: `format_meta.py` (not yet in `bin/`) writes cBioPortal study meta files
+7. Meta files: `format_meta.py` writes cBioPortal study meta files (`meta_study.txt`, `meta_mutations.txt`, `meta_sv.txt`, `meta_cna.txt`, `meta_clinical_patient.txt`, `meta_clinical_sample.txt`)
 
 Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_clinical_patient.txt`, `data_clinical_sample.txt`, `case_lists/`
 
@@ -114,14 +130,11 @@ Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_clinica
 
 - `format_tsv.py` and `format_cna.py` both read the same `analysis_*_export.tsv` but filter on different `Variant Subtype` values: `FUSION` (SVs) vs `DUPLICATION`/`DELETION` (CNAs)
 - CNA copy number → cBioPortal value mapping: `0→-2, 1→-1, 3→1, ≥4→2` (CN=2 is normal, yields `None` and is dropped)
-- `data_cna.txt` is written in long format (Hugo_Symbol, Sample_Id, Value); cBioPortal typically expects wide format — this may need a pivot step
+- `data_cna.txt` is written in long format (Hugo_Symbol, Sample_Id, Value); `meta_cna.txt` declares `datatype: DISCRETE_LONG` so cBioPortal accepts this format directly — no pivot needed
 - The vcf2maf Apptainer container mounts `vep_data` as `/home/jbellavance/` inside the container
 - `clinical_sample_format.py` reads only the first 8 columns of the sample file and drops `num_id` and `tumor_purity`
 - All deanon scripts warn to stderr on unmatched IDs and leave them unchanged
 
 ## Development Status
 
-- `workflows/` directory does not exist; `main.nf` will fail until the workflow file is created
-- `bin/format_meta.py` is referenced in `run_pipeline.sh` but does not exist in `bin/`
-- `bin/` scripts are production-ready and intended to become Nextflow processes
-- GitHub CI/CD, nf-test, modules, MultiQC, and documentation were intentionally skipped from the nf-core template
+First stable release. The full Nextflow pipeline is functional end-to-end. All `bin/` scripts are implemented and used as Nextflow processes via `modules/local/processes.nf`. GitHub CI/CD, nf-test, MultiQC, and nf-core documentation were intentionally skipped from the nf-core template.
