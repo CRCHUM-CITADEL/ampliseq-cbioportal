@@ -1,8 +1,11 @@
-include { FORMAT_SV        } from '../../../modules/local/format_sv/main'
-include { FORMAT_CNA       } from '../../../modules/local/format_cna/main'
-include { STUB_MAF         } from '../../../modules/local/stub_maf/main'
-include { VCF_TO_MAF       } from '../../../modules/local/vcf_to_maf/main'
-include { FILTER_MUTATIONS } from '../../../modules/local/filter_mutations/main'
+include { FORMAT_SV             } from '../../../modules/local/format_sv/main'
+include { FORMAT_CNA            } from '../../../modules/local/format_cna/main'
+include { FORMAT_CNA_VCF        } from '../../../modules/local/format_cna_vcf/main'
+include { STUB_MAF              } from '../../../modules/local/stub_maf/main'
+include { STUB_SV               } from '../../../modules/local/stub_sv/main'
+include { VCF_TO_MAF            } from '../../../modules/local/vcf_to_maf/main'
+include { FILTER_MUTATIONS      } from '../../../modules/local/filter_mutations/main'
+include { PASSTHROUGH_MUTATIONS } from '../../../modules/local/passthrough_mutations/main'
 
 workflow PER_SAMPLE_FORMAT {
 
@@ -11,9 +14,25 @@ workflow PER_SAMPLE_FORMAT {
     ch_vcf_input // channel: tuple(meta, sample_folder)
 
     main:
-    FORMAT_SV(ch_tsv)
-    FORMAT_CNA(ch_tsv)
 
+    // -------------------------------------------------------------------------
+    // SV and CNA: from TSV (filter_tsv_variants = true) or VCF (= false)
+    // -------------------------------------------------------------------------
+    if (params.filter_tsv_variants) {
+        FORMAT_SV(ch_tsv)
+        FORMAT_CNA(ch_tsv)
+        ch_sv  = FORMAT_SV.out
+        ch_cna = FORMAT_CNA.out
+    } else {
+        STUB_SV(ch_tsv)
+        FORMAT_CNA_VCF(ch_vcf_input)
+        ch_sv  = STUB_SV.out
+        ch_cna = FORMAT_CNA_VCF.out
+    }
+
+    // -------------------------------------------------------------------------
+    // Mutations: VCF → MAF, then filter by TSV (= true) or pass through (= false)
+    // -------------------------------------------------------------------------
     if (params.skip_vcf2maf) {
         STUB_MAF(ch_vcf_input)
         ch_maf = STUB_MAF.out
@@ -33,10 +52,16 @@ workflow PER_SAMPLE_FORMAT {
         ch_maf = VCF_TO_MAF.out
     }
 
-    FILTER_MUTATIONS(ch_maf.join(ch_tsv))
+    if (params.filter_tsv_variants) {
+        FILTER_MUTATIONS(ch_maf.join(ch_tsv))
+        ch_mutations = FILTER_MUTATIONS.out
+    } else {
+        PASSTHROUGH_MUTATIONS(ch_maf)
+        ch_mutations = PASSTHROUGH_MUTATIONS.out
+    }
 
     emit:
-    sv        = FORMAT_SV.out
-    cna       = FORMAT_CNA.out
-    mutations = FILTER_MUTATIONS.out
+    sv        = ch_sv
+    cna       = ch_cna
+    mutations = ch_mutations
 }

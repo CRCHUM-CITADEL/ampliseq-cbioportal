@@ -9,4 +9,5 @@ testing*
 null/
 *.sif
 test_results/
+test_results_vcf/
 .nf-test/
