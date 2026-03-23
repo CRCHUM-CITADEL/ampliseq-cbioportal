@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a Nextflow pipeline (`crchum-citadel/ampliseq-cbioportal`) that formats ampliseq genomic data into cBioPortal-compatible format. Built from nf-core/tools template v3.5.1. The Nextflow workflow DAG is fully implemented in `workflows/ampliseq-cbioportal.nf` with all processes defined in `modules/local/processes.nf`. The core transformation logic lives in standalone scripts in `bin/`, which are also directly runnable outside Nextflow via `bin/run_pipeline.sh`.
+This is a Nextflow pipeline (`crchum-citadel/ampliseq-cbioportal`) that formats ampliseq genomic data into cBioPortal-compatible format. Built from nf-core/tools template v3.5.1. The workflow DAG is implemented in `workflows/ampliseq-cbioportal.nf`, split into three subworkflows under `subworkflows/local/`, with each process in its own file under `modules/local/`. The core transformation logic lives in standalone scripts in `bin/`, which are also directly runnable outside Nextflow via `bin/run_pipeline.sh`.
 
 ## Running the Pipeline
 
@@ -14,12 +14,15 @@ nextflow run main.nf --input samplesheet.csv --outdir results/ \
   --patient_file patient_file.txt \
   --sample_file sample_file.txt \
   --linking_file linking_file.txt \
-  --vcf2maf_sif /path/to/vcf2maf_ensembl-vep*.sif \
+  --vcf2maf_container community.wave.seqera.io/library/vcf2maf_ensembl-vep:... \
   --vep_data /path/to/vep_data/ \
   --study_id optilab_study
 
 # Skip VCF → MAF if MAFs already exist
 nextflow run main.nf ... --skip_vcf2maf true
+
+# Use CNV VCF for CNA instead of TSV (pass all mutations through without TSV filtering)
+nextflow run main.nf ... --filter_tsv_variants false
 
 # Resume a previous run
 nextflow run main.nf ... -resume
@@ -74,6 +77,7 @@ Note: `assets/samplesheet.csv` uses the nf-core FASTQ schema (`sample,fastq_1,fa
 **Per-sample folder** must contain:
 - `analysis_*_export.tsv` — tab-separated with columns: `Chr`, `Start`, `End`, `Variant Type`, `Variant Subtype`, `Genes`, `Breakend Genes`, `Supporting Reads`, `Copy Number`
 - `*-basespace-pisces.final.vcf.gz` — compressed VCF; filename prefix becomes the `SAMPLE_ID`
+- `*-basespace-cnv.final.vcf` — CNV VCF (required only when `filter_tsv_variants = false`)
 
 **Linking file** (`linking_file.txt`) — tab-separated, maps anonymized → real IDs:
 ```
@@ -88,53 +92,85 @@ SAMPLE_001	PATIENT_001
 ## Architecture
 
 ```
-main.nf                          # Entry point; reads --input CSV, calls AMPLISEQ_CBIOPORTAL workflow
+main.nf                                  # Entry point; reads --input CSV, calls AMPLISEQ_CBIOPORTAL workflow
 workflows/
-  ampliseq-cbioportal.nf         # Full workflow DAG: per-sample → merge → deanon → clinical → case lists → meta
+  ampliseq-cbioportal.nf                 # Full workflow DAG: per-sample → merge → deanon → clinical → meta
+subworkflows/local/
+  per_sample_format/main.nf             # Per-sample: SV, CNA, mutations (conditional on filter_tsv_variants)
+  merge_deanon/main.nf                  # Merge per-sample files and deanonymize
+  study_metadata/main.nf               # Clinical files, case lists, meta files
 modules/local/
-  processes.nf                   # All Nextflow process definitions
+  format_sv/main.nf                     # Extracts FUSION rows → _sv.txt (filter_tsv_variants=true)
+  format_cna/main.nf                    # Extracts DUPLICATION/DELETION rows → _cna.txt (filter_tsv_variants=true)
+  format_cna_vcf/main.nf               # Parses *-basespace-cnv.final.vcf → _cna.txt (filter_tsv_variants=false)
+  stub_sv/main.nf                       # Emits empty SV header file (filter_tsv_variants=false)
+  vcf_to_maf/main.nf                   # Runs vcf2maf via Apptainer container
+  stub_maf/main.nf                      # Emits empty MAF header (skip_vcf2maf=true)
+  filter_mutations/main.nf             # Filters MAF rows by TSV coordinates (filter_tsv_variants=true)
+  passthrough_mutations/main.nf        # Copies MAF through without filtering (filter_tsv_variants=false)
+  merge_sv/main.nf                      # Concatenates per-sample _sv.txt files
+  merge_cna/main.nf                     # Concatenates per-sample _cna.txt files
+  merge_mutations/main.nf              # Concatenates per-sample _mutations.txt files
+  deanon_mutations/main.nf             # Deanonymizes Tumor_Sample_Barcode in data_mutations.txt
+  deanon_sv/main.nf                    # Deanonymizes Sample_Id in data_sv.txt
+  deanon_cna/main.nf                   # Deanonymizes Sample_Id in data_cna.txt
+  clinical_patients/main.nf            # Formats patient file → data_clinical_patient.txt
+  clinical_samples/main.nf             # Formats sample file → data_clinical_sample.txt
+  write_case_lists/main.nf             # Writes case_lists/ from linking file
+  write_meta/main.nf                   # Writes all cBioPortal meta_*.txt files
 bin/
-  generate_samplesheet.py        # Auto-builds samplesheet.csv from a data directory
-  run_pipeline.sh                # Orchestrates full transformation outside Nextflow (has hardcoded cluster paths)
-  format_tsv.py                  # Extracts FUSION rows → data_sv.txt
-  format_cna.py                  # Extracts DUPLICATION/DELETION rows → data_cna.txt (long format)
-  format_mutations.py            # Deanonymizes Tumor_Sample_Barcode in data_mutations.txt
-  format_sv.py                   # Deanonymizes Sample_Id in data_sv.txt
-  format_cna_deanon.py           # Deanonymizes Sample_Id in data_cna.txt
-  clinical_patients_format.py    # Formats patient file → data_clinical_patient.txt
-  clinical_sample_format.py      # Formats sample file → data_clinical_sample.txt
-  format_meta.py                 # Writes all cBioPortal meta_*.txt files for a study
-test_data/                       # Sample inputs for manual testing
-  samplesheet.csv
-  linking_file.txt / patient_file.txt / sample_file.txt
-  samples/SAMPLE_00{1,2}/        # Each has analysis_*_export.tsv and *.vcf.gz
+  generate_samplesheet.py              # Auto-builds samplesheet.csv from a data directory
+  run_pipeline.sh                       # Orchestrates full transformation outside Nextflow (hardcoded cluster paths)
+  format_tsv.py                         # Extracts FUSION rows → data_sv.txt
+  format_cna.py                         # Extracts DUPLICATION/DELETION rows → data_cna.txt (long format)
+  format_cna_vcf.py                    # Parses *-basespace-cnv.final.vcf → data_cna.txt (long format)
+  format_mutations.py                  # Deanonymizes Tumor_Sample_Barcode in data_mutations.txt
+  format_sv.py                          # Deanonymizes Sample_Id in data_sv.txt
+  format_cna_deanon.py                 # Deanonymizes Sample_Id in data_cna.txt
+  clinical_patients_format.py          # Formats patient file → data_clinical_patient.txt
+  clinical_sample_format.py            # Formats sample file → data_clinical_sample.txt
+  format_meta.py                        # Writes all cBioPortal meta_*.txt files for a study
 assets/
-  schema_input.json              # JSON schema for samplesheet validation (nf-core template)
-nextflow.config                  # Process defaults, profiles, all pipeline params
-nextflow_schema.json             # Parameter schema for --help and validation
+  samplesheet.csv                       # Test samplesheet pointing to assets/samples/
+  linking_file.txt / patient_file.txt / sample_file.txt  # Test clinical files
+  samples/SAMPLE_00{1,2}/              # Each has analysis_*_export.tsv, *.vcf.gz, *-basespace-cnv.final.vcf
+  schema_input.json                    # JSON schema for samplesheet validation (nf-core template)
+nextflow.config                        # Process defaults, profiles, all pipeline params
+nextflow_schema.json                   # Parameter schema for --help and validation
 ```
 
 ## Data Flow
 
-1. Per-sample: `analysis_*_export.tsv` → `format_tsv.py` → `data_sv.txt` (appended per sample)
-2. Per-sample: `analysis_*_export.tsv` → `format_cna.py` → `data_cna.txt` (appended per sample)
-3. Per-sample: VCF decompressed → `apptainer exec vcf2maf.pl` (VEP v113, GRCh37/hg19) → MAF; MAF rows filtered by TSV coordinates via `awk` → appended to `data_mutations.txt`
-4. Deanonymization pass: `format_mutations.py`, `format_sv.py`, `format_cna_deanon.py` replace anonymized IDs using linking file
-5. Clinical: `clinical_patients_format.py` + `clinical_sample_format.py` write cBioPortal 5-line-header format files
-6. Case lists: generated in `case_lists/` from deanonymized IDs in linking file
-7. Meta files: `format_meta.py` writes cBioPortal study meta files (`meta_study.txt`, `meta_mutations.txt`, `meta_sv.txt`, `meta_cna.txt`, `meta_clinical_patient.txt`, `meta_clinical_sample.txt`)
+**When `filter_tsv_variants = true` (default):**
+1. Per-sample: `analysis_*_export.tsv` → FORMAT_SV → `_sv.txt` (FUSION rows)
+2. Per-sample: `analysis_*_export.tsv` → FORMAT_CNA → `_cna.txt` (DUPLICATION/DELETION rows)
+3. Per-sample: VCF → VCF_TO_MAF (vcf2maf, VEP v113, GRCh37/hg19) → MAF → FILTER_MUTATIONS (filter by TSV coordinates) → `_mutations.txt`
+
+**When `filter_tsv_variants = false`:**
+1. Per-sample: STUB_SV emits an empty SV header file
+2. Per-sample: `*-basespace-cnv.final.vcf` → FORMAT_CNA_VCF → `_cna.txt` (CN-mapped long format)
+3. Per-sample: VCF → VCF_TO_MAF → MAF → PASSTHROUGH_MUTATIONS (no filtering) → `_mutations.txt`
+
+**Common downstream steps (both modes):**
+4. MERGE_SV / MERGE_CNA / MERGE_MUTATIONS collect per-sample files into merged files
+5. DEANON_MUTATIONS / DEANON_SV / DEANON_CNA replace anonymized IDs using linking file → `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`
+6. CLINICAL_PATIENTS + CLINICAL_SAMPLES write cBioPortal 5-line-header format files
+7. WRITE_CASE_LISTS generates `case_lists/` from deanonymized IDs in linking file
+8. WRITE_META writes cBioPortal study meta files (`meta_study.txt`, `meta_mutations.txt`, `meta_sv.txt`, `meta_cna.txt`, `meta_clinical_patient.txt`, `meta_clinical_sample.txt`)
 
 Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_clinical_patient.txt`, `data_clinical_sample.txt`, `case_lists/`
 
 ## Key Implementation Notes
 
 - `format_tsv.py` and `format_cna.py` both read the same `analysis_*_export.tsv` but filter on different `Variant Subtype` values: `FUSION` (SVs) vs `DUPLICATION`/`DELETION` (CNAs)
-- CNA copy number → cBioPortal value mapping: `0→-2, 1→-1, 3→1, ≥4→2` (CN=2 is normal, yields `None` and is dropped)
+- `format_cna_vcf.py` reads `*-basespace-cnv.final.vcf`, processes only `FILTER=PASS` records, uses the `ID` column as gene name, and reads `CN` from the `FORMAT`/sample column named `Sample`
+- CNA copy number → cBioPortal value mapping: `0→-2, 1→-1, 2→0, 3→1, ≥4→2` (CN=2 maps to 0 in VCF mode; CN=2 is normal and dropped in TSV mode)
 - `data_cna.txt` is written in long format (Hugo_Symbol, Sample_Id, Value); `meta_cna.txt` declares `datatype: DISCRETE_LONG` so cBioPortal accepts this format directly — no pivot needed
 - The vcf2maf Apptainer container mounts `vep_data` as `/home/jbellavance/` inside the container
 - `clinical_sample_format.py` reads only the first 8 columns of the sample file and drops `num_id` and `tumor_purity`
 - All deanon scripts warn to stderr on unmatched IDs and leave them unchanged
+- `filter_tsv_variants` controls two independent branches: SV/CNA source (TSV vs VCF) and mutation filtering (TSV-coordinate-filtered vs passthrough)
 
 ## Development Status
 
-First stable release. The full Nextflow pipeline is functional end-to-end. All `bin/` scripts are implemented and used as Nextflow processes via `modules/local/processes.nf`. GitHub CI/CD, nf-test, MultiQC, and nf-core documentation were intentionally skipped from the nf-core template.
+First stable release. The full Nextflow pipeline is functional end-to-end. Each process is in its own file under `modules/local/`, organized into three subworkflows. GitHub CI/CD, nf-test, MultiQC, and nf-core documentation were intentionally skipped from the nf-core template.

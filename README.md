@@ -19,6 +19,7 @@ cohort_A,PATIENT_001,SAMPLE_001,path/to/samples/SAMPLE_001
 Each sample folder must contain:
 - `analysis_*_export.tsv` — structural variant / CNA export
 - `*-basespace-pisces.final.vcf.gz` — compressed VCF
+- `*-basespace-cnv.final.vcf` — CNV VCF (required only when `--filter_tsv_variants false`)
 
 **Linking file** (`linking_file.txt`, tab-separated) — maps anonymized → real IDs:
 ```
@@ -39,7 +40,7 @@ nextflow run main.nf \
   --patient_file patient_file.txt \
   --sample_file sample_file.txt \
   --linking_file linking_file.txt \
-  --vcf2maf_sif /path/to/vcf2maf_ensembl-vep.sif \
+  --vcf2maf_container community.wave.seqera.io/library/vcf2maf_ensembl-vep:... \
   --vep_data /path/to/vep_data/ \
   --study_id my_study
 ```
@@ -49,6 +50,11 @@ Skip VCF → MAF conversion if MAFs already exist:
 nextflow run main.nf ... --skip_vcf2maf true
 ```
 
+Use CNV VCF for CNA instead of TSV (mutations pass through without TSV-coordinate filtering):
+```bash
+nextflow run main.nf ... --filter_tsv_variants false
+```
+
 Resume a previous run:
 ```bash
 nextflow run main.nf ... -resume
@@ -56,7 +62,7 @@ nextflow run main.nf ... -resume
 
 ### Running standalone scripts (without Nextflow)
 
-Until the Nextflow workflow DAG is implemented, run the full transformation via:
+The full transformation can also be run via:
 
 ```bash
 # Edit hardcoded paths at the top of the script first
