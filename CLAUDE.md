@@ -163,7 +163,7 @@ Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_clinica
 ## Key Implementation Notes
 
 - `format_tsv.py` and `format_cna.py` both read the same `analysis_*_export.tsv` but filter on different `Variant Subtype` values: `FUSION` (SVs) vs `DUPLICATION`/`DELETION` (CNAs)
-- `format_cna_vcf.py` reads `*-basespace-cnv.final.vcf`, processes only `FILTER=PASS` records, uses the `ID` column as gene name, and reads `CN` from the `FORMAT`/sample column named `Sample`
+- `format_cna_vcf.py` reads `*-basespace-cnv.final.vcf`, processes only `FILTER=PASS` records, uses the `ID` column as a query key to fetch the official Hugo Symbol via the `mygene.info` API (human/hg19), and reads `CN` from the `FORMAT`/sample column named `Sample`. Falls back to the raw ID if no Hugo Symbol is found.
 - CNA copy number → cBioPortal value mapping: `0→-2, 1→-1, 2→0, 3→1, ≥4→2` (CN=2 maps to 0 in VCF mode; CN=2 is normal and dropped in TSV mode)
 - `data_cna.txt` is written in long format (Hugo_Symbol, Sample_Id, Value); `meta_cna.txt` declares `datatype: DISCRETE_LONG` so cBioPortal accepts this format directly — no pivot needed
 - The vcf2maf Apptainer container mounts `vep_data` as `/home/jbellavance/` inside the container
