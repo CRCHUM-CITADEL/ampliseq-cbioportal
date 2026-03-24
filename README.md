@@ -19,7 +19,6 @@ cohort_A,PATIENT_001,SAMPLE_001,path/to/samples/SAMPLE_001
 Each sample folder must contain:
 - `analysis_*_export.tsv` — structural variant / CNA export
 - `*-basespace-pisces.final.vcf.gz` — compressed VCF
-- `*-basespace-cnv.final.vcf` — CNV VCF (required only when `--filter_tsv_variants false`)
 
 **Linking file** (`linking_file.txt`, tab-separated) — maps anonymized → real IDs:
 ```
@@ -48,11 +47,6 @@ nextflow run main.nf \
 Skip VCF → MAF conversion if MAFs already exist:
 ```bash
 nextflow run main.nf ... --skip_vcf2maf true
-```
-
-Use CNV VCF for CNA instead of TSV (mutations pass through without TSV-coordinate filtering):
-```bash
-nextflow run main.nf ... --filter_tsv_variants false
 ```
 
 Resume a previous run:
