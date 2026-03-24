@@ -12,3 +12,4 @@ test_results/
 test_results_vcf/
 .nf-test/
 test_results_passthrough/
+output*/
