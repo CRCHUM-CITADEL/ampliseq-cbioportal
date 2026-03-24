@@ -49,6 +49,11 @@ Skip VCF → MAF conversion if MAFs already exist:
 nextflow run main.nf ... --skip_vcf2maf true
 ```
 
+Pass all mutations through without TSV-coordinate filtering:
+```bash
+nextflow run main.nf ... --filter_tsv_variants false
+```
+
 Resume a previous run:
 ```bash
 nextflow run main.nf ... -resume

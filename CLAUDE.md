@@ -21,6 +21,9 @@ nextflow run main.nf --input samplesheet.csv --outdir results/ \
 # Skip VCF → MAF if MAFs already exist
 nextflow run main.nf ... --skip_vcf2maf true
 
+# Pass all mutations through without TSV-coordinate filtering
+nextflow run main.nf ... --filter_tsv_variants false
+
 # Resume a previous run
 nextflow run main.nf ... -resume
 ```
@@ -100,7 +103,8 @@ modules/local/
   format_cna/main.nf                    # Extracts DUPLICATION/DELETION rows → _cna.txt
   vcf_to_maf/main.nf                   # Runs vcf2maf via Apptainer container
   stub_maf/main.nf                      # Emits empty MAF header (skip_vcf2maf=true)
-  filter_mutations/main.nf             # Filters MAF rows by TSV coordinates
+  filter_mutations/main.nf             # Filters MAF rows by TSV coordinates (filter_tsv_variants=true)
+  passthrough_mutations/main.nf        # Copies MAF through without filtering (filter_tsv_variants=false)
   merge_sv/main.nf                      # Concatenates per-sample _sv.txt files
   merge_cna/main.nf                     # Concatenates per-sample _cna.txt files
   merge_mutations/main.nf              # Concatenates per-sample _mutations.txt files
@@ -136,7 +140,7 @@ nextflow_schema.json                   # Parameter schema for --help and validat
 **Per-sample:**
 1. `analysis_*_export.tsv` → FORMAT_SV → `_sv.txt` (FUSION rows)
 2. `analysis_*_export.tsv` → FORMAT_CNA → `_cna.txt` (DUPLICATION/DELETION rows)
-3. VCF → VCF_TO_MAF (vcf2maf, VEP v113, GRCh37/hg19) → MAF → FILTER_MUTATIONS (filter by TSV coordinates) → `_mutations.txt`
+3. VCF → VCF_TO_MAF (vcf2maf, VEP v113, GRCh37/hg19) → MAF → FILTER_MUTATIONS (filter by TSV coordinates, default) or PASSTHROUGH_MUTATIONS (skip filtering) → `_mutations.txt`
 
 **Downstream:**
 4. MERGE_SV / MERGE_CNA / MERGE_MUTATIONS collect per-sample files into merged files
@@ -155,6 +159,7 @@ Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_clinica
 - The vcf2maf Apptainer container mounts `vep_data` as `/home/jbellavance/` inside the container
 - `clinical_sample_format.py` reads only the first 8 columns of the sample file and drops `num_id` and `tumor_purity`
 - All deanon scripts warn to stderr on unmatched IDs and leave them unchanged
+- `filter_tsv_variants` controls mutation filtering only: when `true` (default) mutations are filtered to TSV coordinates; when `false` all MAF mutations pass through unfiltered
 
 ## Development Status
 

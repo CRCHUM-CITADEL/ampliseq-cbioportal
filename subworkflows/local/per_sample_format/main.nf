@@ -1,8 +1,9 @@
-include { FORMAT_SV        } from '../../../modules/local/format_sv/main'
-include { FORMAT_CNA       } from '../../../modules/local/format_cna/main'
-include { STUB_MAF         } from '../../../modules/local/stub_maf/main'
-include { VCF_TO_MAF       } from '../../../modules/local/vcf_to_maf/main'
-include { FILTER_MUTATIONS } from '../../../modules/local/filter_mutations/main'
+include { FORMAT_SV             } from '../../../modules/local/format_sv/main'
+include { FORMAT_CNA            } from '../../../modules/local/format_cna/main'
+include { STUB_MAF              } from '../../../modules/local/stub_maf/main'
+include { VCF_TO_MAF            } from '../../../modules/local/vcf_to_maf/main'
+include { FILTER_MUTATIONS      } from '../../../modules/local/filter_mutations/main'
+include { PASSTHROUGH_MUTATIONS } from '../../../modules/local/passthrough_mutations/main'
 
 workflow PER_SAMPLE_FORMAT {
 
@@ -42,8 +43,13 @@ workflow PER_SAMPLE_FORMAT {
         ch_maf = VCF_TO_MAF.out
     }
 
-    FILTER_MUTATIONS(ch_maf.join(ch_tsv))
-    ch_mutations = FILTER_MUTATIONS.out
+    if (params.filter_tsv_variants) {
+        FILTER_MUTATIONS(ch_maf.join(ch_tsv))
+        ch_mutations = FILTER_MUTATIONS.out
+    } else {
+        PASSTHROUGH_MUTATIONS(ch_maf)
+        ch_mutations = PASSTHROUGH_MUTATIONS.out
+    }
 
     emit:
     sv        = ch_sv
