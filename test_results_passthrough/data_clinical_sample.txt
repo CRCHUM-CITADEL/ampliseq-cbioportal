@@ -1,0 +1,7 @@
+#Patient Identifier	Sample Identifier	Cancer Type	Cancer Type Detailed	Sample Type	Primary site
+#Patient identifier	Sample Identifier	Cancer type	Sub-type of the specified	Type of cancer sample	Primary site of cancer sample
+#STRING	STRING	STRING	STRING	STRING	STRING
+#1	1	1	1	1	1
+PATIENT_ID	SAMPLE_ID	CANCER_TYPE	CANCER_TYPE_DETAILED	SAMPLE_TYPE	PRIMARY_SITE
+PATIENT_001	SAMPLE_001	Non-Small Cell Lung Cancer	Lung Adenocarcinoma	Primary	Lung
+PATIENT_002	SAMPLE_002	Colorectal Cancer	Colon Adenocarcinoma	Primary	Colon
