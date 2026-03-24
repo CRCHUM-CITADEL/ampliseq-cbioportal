@@ -1,3 +1,11 @@
 group,subject_id,sample_id,folder_location
-cohort_A,PATIENT_001,SAMPLE_001,test_data/samples/SAMPLE_001
-cohort_A,PATIENT_002,SAMPLE_002,test_data/samples/SAMPLE_002
+Cohorte_10_patients_new,25bm002356,25bm002356_5924,/data/optilab/patients/Cohorte_10_patients_new/5920_25BM002356-1-A01-5
+Cohorte_10_patients_new,25cn001365,25cn001365_5923,/data/optilab/patients/Cohorte_10_patients_new/5922_25CN001365-1-A3-2
+Cohorte_10_patients_new,25bm002398,25bm002398_5925,/data/optilab/patients/Cohorte_10_patients_new/5923_25BM002398-1-A01-4
+Cohorte_10_patients_new,25bm002415,25bm002415_5922,/data/optilab/patients/Cohorte_10_patients_new/5924_25BM002415-1-A01-4
+Cohorte_10_patients_new,23hi053835,23hi053835_5926,/data/optilab/patients/Cohorte_10_patients_new/5925_23HI053835-1-A02-6
+Cohorte_10_patients_new,25hi019387,25hi019387_5921,/data/optilab/patients/Cohorte_10_patients_new/5926_25HI019387-1-A11-10
+Cohorte_10_patients_new,25bm002384,25bm002384_5927,/data/optilab/patients/Cohorte_10_patients_new/5927_25BM002384-1-A02-4
+Cohorte_10_patients_new,25bm002387,25bm002387_5928,/data/optilab/patients/Cohorte_10_patients_new/5928_25BM002387-1-A01-4
+Cohorte_10_patients_new,25bm002393,25bm002393_5930,/data/optilab/patients/Cohorte_10_patients_new/5929_25BM002393-1-A01-4
+Cohorte_10_patients_new,25bm002389,25bm002389_5929,/data/optilab/patients/Cohorte_10_patients_new/5930_25BM002389-1-A10-4

@@ -1,0 +1,5 @@
+cancer_study_identifier: optilab_study
+stable_id: optilab_study_cna
+case_list_name: all cna
+case_list_description: all cna of optilab_study
+case_list_ids: P-01_S1	P-02_S1	P-03_S1	P-04_M1	P-05_T1	P-06_T1	P-07_S1	P-08_M1	P-09_M1	P-10_S1

@@ -1,0 +1,15 @@
+#Patient Identifier	Sample Identifier	Cancer Type	Cancer Type Detailed	Sample Type	Primary site
+#Patient identifier	Sample Identifier	Cancer type	Sub-type of the specified	Type of cancer sample	Primary site of cancer sample
+#STRING	STRING	STRING	STRING	STRING	STRING
+#1	1	1	1	1	1
+PATIENT_ID	SAMPLE_ID	CANCER_TYPE	CANCER_TYPE_DETAILED	SAMPLE_TYPE	PRIMARY_SITE
+P-01	P-01_S1	NA	NA	NA	NA
+P-02	P-02_S1	NA	NA	NA	NA
+P-03	P-03_S1	NA	NA	NA	NA
+P-04	P-04_M1	Colerectal cancer	Colorectal adenocarcinoma	Metastasis	Liver
+P-05	P-05_T1	Lung cancer	Lung adenocarcinoma	Primary	Lung
+P-06	P-06_T1	Colerectal cancer	Colon adenocarcinoma	Primary	Colon
+P-07	P-07_S1	NA	NA	NA	NA
+P-08	P-08_M1	Cancer of unknown primary	Non-small cell carcinoma	Metastasis	Liver
+P-09	P-09_M1	Breast cancer	Breast ductal carcinoma	Metastasis	Neck
+P-10	P-10_S1	NA	NA	NA	NA
