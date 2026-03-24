@@ -16,7 +16,12 @@ group,subject_id,sample_id,folder_location
 cohort_A,PATIENT_001,SAMPLE_001,path/to/samples/SAMPLE_001
 ```
 
-Each sample folder must contain:
+You can generate a samplesheet using a Python script (tested with version 3.12):
+```bash
+python3.12 bin/generate_samplesheet.py /data/folder/ --output samplesheet.csv
+```
+
+Each sample folder must contain, at minimum:
 - `analysis_*_export.tsv` — structural variant / CNA export
 - `*-basespace-pisces.final.vcf.gz` — compressed VCF
 
@@ -28,18 +33,19 @@ SAMPLE_001	PATIENT_001
 
 **Patient file** (tab-separated): `patient_id`, `age`, `sex`, `os_status`, `os_months`, `smoking_history`
 
-**Sample file** (tab-separated): `num_id`, `sample_id`, `patient_id`, `cancer_type`, `cancer_type_detailed`, `sample_type`, `tumor_site`, `tumor_purity`
+**Sample file** (tab-separated): `sample_id`, `patient_id`, `cancer_type`, `cancer_type_detailed`, `sample_type`, `tumor_site`, `tumor_purity`
 
-### 2. Run the pipeline
+### 2 (option a): Run the pipeline
 
 ```bash
 nextflow run main.nf \
+  -profile apptainer \
   --input samplesheet.csv \
   --outdir results/ \
   --patient_file patient_file.txt \
   --sample_file sample_file.txt \
   --linking_file linking_file.txt \
-  --vcf2maf_sif /path/to/vcf2maf_ensembl-vep.sif \
+  --vcf2maf_container community.wave.seqera.io/library/vcf2maf_ensembl-vep:... \
   --vep_data /path/to/vep_data/ \
   --study_id my_study
 ```
@@ -49,37 +55,15 @@ Skip VCF → MAF conversion if MAFs already exist:
 nextflow run main.nf ... --skip_vcf2maf true
 ```
 
+Pass all mutations through without TSV-coordinate filtering:
+```bash
+nextflow run main.nf ... --filter_tsv_variants false
+```
+
+### 2 (option b). Change nextflow.config and change the pipeline
+nextflow run main.nf -profile apptainer
+
 Resume a previous run:
 ```bash
 nextflow run main.nf ... -resume
 ```
-
-### Running standalone scripts (without Nextflow)
-
-Until the Nextflow workflow DAG is implemented, run the full transformation via:
-
-```bash
-# Edit hardcoded paths at the top of the script first
-bash bin/run_pipeline.sh
-```
-
-Or run individual scripts from within the output directory:
-
-```bash
-cd /path/to/output
-
-python3 /path/to/bin/format_tsv.py       <analysis_export.tsv> <SAMPLE_ID>
-python3 /path/to/bin/format_cna.py       <analysis_export.tsv> <SAMPLE_ID>
-python3 /path/to/bin/format_mutations.py data_mutations.txt    <linking_file>
-python3 /path/to/bin/format_sv.py        data_sv.txt           <linking_file>
-python3 /path/to/bin/format_cna_deanon.py data_cna.txt         <linking_file>
-python3 /path/to/bin/clinical_patients_format.py <patient_file>
-python3 /path/to/bin/clinical_sample_format.py   <sample_file>
-```
-
-
-> **The nf-core framework for community-curated bioinformatics pipelines.**
->
-> Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.
->
-> _Nat Biotechnol._ 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://dx.doi.org/10.1038/s41587-020-0439-x).
