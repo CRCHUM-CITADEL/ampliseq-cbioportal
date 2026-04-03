@@ -2,7 +2,7 @@
 
 ## Introduction
 
-**crchum-citadel/ampliseq-cbioportal** formats ampliseq genomic data (VCFs + structural variant TSVs) into cBioPortal-compatible files: mutations (MAF), copy number alterations, structural variants, and clinical data.
+**crchum-citadel/ampliseq-cbioportal** formats ampliseq genomic data (VCFs + structural variant TSVs) into cBioPortal-compatible files: mutations (MAF), copy number alterations, structural variants, segmentation data, and clinical data.
 
 Requires Nextflow >= 25.04.0.
 
@@ -18,7 +18,8 @@ cohort_A,PATIENT_001,SAMPLE_001,path/to/samples/SAMPLE_001
 
 Each sample folder must contain:
 - `analysis_*_export.tsv` — structural variant / CNA export
-- `*-basespace-pisces.final.vcf.gz` — compressed VCF
+- `*-basespace-pisces.final.vcf.gz` — compressed VCF for mutation calling
+- `*-basespace-cnv.final.vcf` — CNV VCF for segmentation (`CN` FORMAT field required)
 
 **Linking file** (`linking_file.txt`, tab-separated) — maps anonymized → real IDs:
 ```
@@ -78,6 +79,8 @@ python3 /path/to/bin/format_cna.py       <analysis_export.tsv> <SAMPLE_ID>
 python3 /path/to/bin/format_mutations.py data_mutations.txt    <linking_file>
 python3 /path/to/bin/format_sv.py        data_sv.txt           <linking_file>
 python3 /path/to/bin/format_cna_deanon.py data_cna.txt         <linking_file>
+python3 /path/to/bin/vcf_to_seg.py        <cnv.vcf>             <SAMPLE_ID>
+python3 /path/to/bin/seg_deanon.py        data_seg.txt          <linking_file>
 python3 /path/to/bin/clinical_patients_format.py <patient_file>
 python3 /path/to/bin/clinical_sample_format.py   <sample_file>
 ```

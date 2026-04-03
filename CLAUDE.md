@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a Nextflow pipeline (`crchum-citadel/ampliseq-cbioportal`) that formats ampliseq genomic data into cBioPortal-compatible format. Built from nf-core/tools template v3.5.1. The workflow DAG is implemented in `workflows/ampliseq-cbioportal.nf`, split into three subworkflows under `subworkflows/local/`, with each process in its own file under `modules/local/`. The core transformation logic lives in standalone scripts in `bin/`, which are also directly runnable outside Nextflow via `bin/run_pipeline.sh`.
+This is a Nextflow pipeline (`crchum-citadel/ampliseq-cbioportal`) that formats ampliseq genomic data into cBioPortal-compatible format, including mutations (MAF), discrete copy number alterations, structural variants, segmentation data (SEG), and clinical files. Built from nf-core/tools template v3.5.1. The workflow DAG is implemented in `workflows/ampliseq-cbioportal.nf`, split into three subworkflows under `subworkflows/local/`, with each process in its own file under `modules/local/`. The core transformation logic lives in standalone scripts in `bin/`, which are also directly runnable outside Nextflow via `bin/run_pipeline.sh`.
 
 ## Running the Pipeline
 
@@ -60,6 +60,8 @@ python3 /path/to/bin/format_cna.py    <analysis_export.tsv> <SAMPLE_ID>   # appe
 python3 /path/to/bin/format_mutations.py data_mutations.txt <linking_file> # deanonymizes in-place
 python3 /path/to/bin/format_sv.py       data_sv.txt         <linking_file> # deanonymizes in-place
 python3 /path/to/bin/format_cna_deanon.py data_cna.txt      <linking_file> # deanonymizes in-place
+python3 /path/to/bin/vcf_to_seg.py     <cnv.vcf>            <SAMPLE_ID>   # appends to data_seg.txt
+python3 /path/to/bin/seg_deanon.py     data_seg.txt         <linking_file> # deanonymizes in-place
 python3 /path/to/bin/clinical_patients_format.py <patient_file>            # writes data_clinical_patient.txt
 python3 /path/to/bin/clinical_sample_format.py   <sample_file>             # writes data_clinical_sample.txt
 python3 /path/to/bin/format_meta.py <study_id> [out_dir]                 # writes all meta_*.txt files
@@ -76,7 +78,8 @@ Note: `assets/samplesheet.csv` uses the nf-core FASTQ schema (`sample,fastq_1,fa
 
 **Per-sample folder** must contain:
 - `analysis_*_export.tsv` — tab-separated with columns: `Chr`, `Start`, `End`, `Variant Type`, `Variant Subtype`, `Genes`, `Breakend Genes`, `Supporting Reads`, `Copy Number`
-- `*-basespace-pisces.final.vcf.gz` — compressed VCF; filename prefix becomes the `SAMPLE_ID`
+- `*-basespace-pisces.final.vcf.gz` — compressed VCF for mutation calling; filename prefix becomes the `SAMPLE_ID`
+- `*-basespace-cnv.final.vcf` — uncompressed CNV VCF for segmentation; must have `CN` in FORMAT and `END` in INFO for non-point segments
 
 **Linking file** (`linking_file.txt`) — tab-separated, maps anonymized → real IDs:
 ```
@@ -105,12 +108,15 @@ modules/local/
   stub_maf/main.nf                      # Emits empty MAF header (skip_vcf2maf=true)
   filter_mutations/main.nf             # Filters MAF rows by TSV coordinates (filter_tsv_variants=true)
   passthrough_mutations/main.nf        # Copies MAF through without filtering (filter_tsv_variants=false)
+  vcf_to_seg/main.nf                   # Converts *-basespace-cnv.final.vcf → per-sample _seg.txt
   merge_sv/main.nf                      # Concatenates per-sample _sv.txt files
   merge_cna/main.nf                     # Concatenates per-sample _cna.txt files
   merge_mutations/main.nf              # Concatenates per-sample _mutations.txt files
+  merge_seg/main.nf                     # Concatenates per-sample _seg.txt files
   deanon_mutations/main.nf             # Deanonymizes Tumor_Sample_Barcode in data_mutations.txt
   deanon_sv/main.nf                    # Deanonymizes Sample_Id in data_sv.txt
   deanon_cna/main.nf                   # Deanonymizes Sample_Id in data_cna.txt
+  deanon_seg/main.nf                   # Deanonymizes ID in data_seg.txt
   clinical_patients/main.nf            # Formats patient file → data_clinical_patient.txt
   clinical_samples/main.nf             # Formats sample file → data_clinical_sample.txt
   write_case_lists/main.nf             # Writes case_lists/ from linking file
@@ -123,6 +129,8 @@ bin/
   format_mutations.py                  # Deanonymizes Tumor_Sample_Barcode in data_mutations.txt
   format_sv.py                          # Deanonymizes Sample_Id in data_sv.txt
   format_cna_deanon.py                 # Deanonymizes Sample_Id in data_cna.txt
+  vcf_to_seg.py                         # Converts CNV VCF → data_seg.txt (PASS records; seg.mean = log2(CN/2))
+  seg_deanon.py                         # Deanonymizes ID column in data_seg.txt
   clinical_patients_format.py          # Formats patient file → data_clinical_patient.txt
   clinical_sample_format.py            # Formats sample file → data_clinical_sample.txt
   format_meta.py                        # Writes all cBioPortal meta_*.txt files for a study
@@ -141,15 +149,16 @@ nextflow_schema.json                   # Parameter schema for --help and validat
 1. `analysis_*_export.tsv` → FORMAT_SV → `_sv.txt` (FUSION rows)
 2. `analysis_*_export.tsv` → FORMAT_CNA → `_cna.txt` (DUPLICATION/DELETION rows)
 3. VCF → VCF_TO_MAF (vcf2maf, VEP v113, GRCh37/hg19) → MAF → FILTER_MUTATIONS (filter by TSV coordinates, default) or PASSTHROUGH_MUTATIONS (skip filtering) → `_mutations.txt`
+4. `*-basespace-cnv.final.vcf` → VCF_TO_SEG → `_seg.txt` (PASS records only; seg.mean = log2(CN/2))
 
 **Downstream:**
-4. MERGE_SV / MERGE_CNA / MERGE_MUTATIONS collect per-sample files into merged files
-5. DEANON_MUTATIONS / DEANON_SV / DEANON_CNA replace anonymized IDs using linking file → `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`
-6. CLINICAL_PATIENTS + CLINICAL_SAMPLES write cBioPortal 5-line-header format files
-7. WRITE_CASE_LISTS generates `case_lists/` from deanonymized IDs in linking file
-8. WRITE_META writes cBioPortal study meta files (`meta_study.txt`, `meta_mutations.txt`, `meta_sv.txt`, `meta_cna.txt`, `meta_clinical_patient.txt`, `meta_clinical_sample.txt`)
+5. MERGE_SV / MERGE_CNA / MERGE_MUTATIONS / MERGE_SEG collect per-sample files into merged files
+6. DEANON_MUTATIONS / DEANON_SV / DEANON_CNA / DEANON_SEG replace anonymized IDs using linking file → `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_seg.txt`
+7. CLINICAL_PATIENTS + CLINICAL_SAMPLES write cBioPortal 5-line-header format files
+8. WRITE_CASE_LISTS generates `case_lists/` from deanonymized IDs in linking file
+9. WRITE_META writes cBioPortal study meta files (`meta_study.txt`, `meta_mutations.txt`, `meta_sv.txt`, `meta_cna.txt`, `meta_seg.txt`, `meta_clinical_patient.txt`, `meta_clinical_sample.txt`)
 
-Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_clinical_patient.txt`, `data_clinical_sample.txt`, `case_lists/`
+Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_seg.txt`, `data_clinical_patient.txt`, `data_clinical_sample.txt`, `case_lists/`
 
 ## Key Implementation Notes
 
@@ -160,6 +169,8 @@ Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_clinica
 - `clinical_sample_format.py` reads only the first 8 columns of the sample file and drops `num_id` and `tumor_purity`
 - All deanon scripts warn to stderr on unmatched IDs and leave them unchanged
 - `filter_tsv_variants` controls mutation filtering only: when `true` (default) mutations are filtered to TSV coordinates; when `false` all MAF mutations pass through unfiltered
+- `vcf_to_seg.py` reads `*-basespace-cnv.final.vcf`, keeps only PASS records, parses `END` from INFO (defaults to POS for point variants), reads integer `CN` from the FORMAT/sample columns, and computes `seg.mean = log2(CN/2)`; CN=0 yields −3.0 as a homozygous-deletion sentinel; `num.mark` is always 1 since ampliseq VCFs carry no probe-count information
+- `meta_seg.txt` declares `datatype: SEG` and `show_profile_in_analysis_tab: false`; cBioPortal uses SEG files for the copy-number segment viewer
 
 ## Development Status
 
