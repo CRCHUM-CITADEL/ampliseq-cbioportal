@@ -60,6 +60,7 @@ workflow AMPLISEQ_CBIOPORTAL {
         PER_SAMPLE_FORMAT.out.sv.collect(),
         PER_SAMPLE_FORMAT.out.cna.collect(),
         PER_SAMPLE_FORMAT.out.mutations.collect(),
+        PER_SAMPLE_FORMAT.out.seg.collect(),
         ch_linking
     )
 
