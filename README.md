@@ -50,6 +50,11 @@ Skip VCF → MAF conversion if MAFs already exist:
 nextflow run main.nf ... --skip_vcf2maf true
 ```
 
+Pass all mutations through without TSV-coordinate filtering:
+```bash
+nextflow run main.nf ... --filter_tsv_variants false
+```
+
 Resume a previous run:
 ```bash
 nextflow run main.nf ... -resume
@@ -57,7 +62,7 @@ nextflow run main.nf ... -resume
 
 ### Running standalone scripts (without Nextflow)
 
-Until the Nextflow workflow DAG is implemented, run the full transformation via:
+The full transformation can also be run via:
 
 ```bash
 # Edit hardcoded paths at the top of the script first
@@ -74,13 +79,8 @@ python3 /path/to/bin/format_cna.py       <analysis_export.tsv> <SAMPLE_ID>
 python3 /path/to/bin/format_mutations.py data_mutations.txt    <linking_file>
 python3 /path/to/bin/format_sv.py        data_sv.txt           <linking_file>
 python3 /path/to/bin/format_cna_deanon.py data_cna.txt         <linking_file>
+python3 /path/to/bin/vcf_to_seg.py        <cnv.vcf>             <SAMPLE_ID>
+python3 /path/to/bin/seg_deanon.py        data_seg.txt          <linking_file>
 python3 /path/to/bin/clinical_patients_format.py <patient_file>
 python3 /path/to/bin/clinical_sample_format.py   <sample_file>
 ```
-
-
-> **The nf-core framework for community-curated bioinformatics pipelines.**
->
-> Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.
->
-> _Nat Biotechnol._ 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://dx.doi.org/10.1038/s41587-020-0439-x).

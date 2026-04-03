@@ -12,3 +12,6 @@ test_results/
 .nf-test/
 samplesheet.csv
 output*
+test_results_passthrough
+test_results*
+test_results_passthrough
