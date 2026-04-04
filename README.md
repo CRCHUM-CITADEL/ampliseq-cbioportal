@@ -60,6 +60,22 @@ Resume a previous run:
 nextflow run main.nf ... -resume
 ```
 
+### Incremental runs
+
+When new samples are added to the samplesheet, re-running with the same `--outdir` automatically skips samples already processed. Only new samples go through per-sample steps; the merge and downstream steps re-run over all samples.
+
+```bash
+# Initial run
+nextflow run main.nf --input samplesheet_v1.csv --outdir results/ ...
+
+# Later — add new samples to the samplesheet and re-run
+nextflow run main.nf --input samplesheet_v2.csv --outdir results/ ...
+# → existing samples skipped, new samples processed, outputs updated
+```
+
+A sample is skipped when all four files exist under `results/samples/{sample_id}/`:
+`{sample_id}_sv.txt`, `{sample_id}_cna.txt`, `{sample_id}_seg.txt`, `{sample_id}_mutations.txt`
+
 ### Running standalone scripts (without Nextflow)
 
 The full transformation can also be run via:

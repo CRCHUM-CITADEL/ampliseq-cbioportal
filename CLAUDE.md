@@ -27,6 +27,25 @@ nextflow run main.nf ... -resume
 
 Requires Nextflow >= 25.04.0. All container paths are Apptainer `.sif` images.
 
+## Incremental Runs
+
+When a cohort grows (new samples added to the samplesheet), re-running with the same `--outdir` automatically skips samples whose per-sample outputs already exist. Only new samples are processed; the merge/deanon/clinical steps re-run over all samples combined.
+
+```bash
+# Initial run — processes SAMPLE_001, SAMPLE_002
+nextflow run main.nf --input samplesheet_v1.csv --outdir results/ ...
+
+# Incremental run — skips SAMPLE_001 and SAMPLE_002, processes SAMPLE_003 only
+nextflow run main.nf --input samplesheet_v2.csv --outdir results/ ...
+```
+
+A sample is considered already processed when all four files exist under `{outdir}/samples/{sample_id}/`:
+`{sample_id}_sv.txt`, `{sample_id}_cna.txt`, `{sample_id}_seg.txt`, `{sample_id}_mutations.txt`
+
+Skipped samples are logged: `INFO: Skipping already-processed sample: SAMPLE_001`
+
+**Important:** use the same `--outdir` across runs for incremental skipping to work. Per-sample outputs are published with `mode: 'copy'` (not symlinks), so they survive `work/` cleanup.
+
 ## Generating a Samplesheet
 
 Use `bin/generate_samplesheet.py` to auto-build `samplesheet.csv` from a data directory:
@@ -66,12 +85,12 @@ python3 /path/to/bin/format_meta.py <study_id> [out_dir]                 # write
 
 ## Input File Formats
 
-**Pipeline samplesheet** (`--input`, `test_data/samplesheet.csv`):
+**Pipeline samplesheet** (`--input`, `assets/samplesheet.csv`):
 ```
 group,subject_id,sample_id,folder_location
-cohort_A,PATIENT_001,SAMPLE_001,test_data/samples/SAMPLE_001
+cohort_A,PATIENT_001,SAMPLE_001,assets/samples/SAMPLE_001
 ```
-Note: `assets/samplesheet.csv` uses the nf-core FASTQ schema (`sample,fastq_1,fastq_2`) — this is a template artifact, not the actual input format.
+`assets/samplesheet_sample1.csv` contains only SAMPLE_001 and is used as the first-run input in the incremental test.
 
 **Per-sample folder** must contain:
 - `analysis_*_export.tsv` — tab-separated with columns: `Chr`, `Start`, `End`, `Variant Type`, `Variant Subtype`, `Genes`, `Breakend Genes`, `Supporting Reads`, `Copy Number`
@@ -117,6 +136,7 @@ modules/local/
 bin/
   generate_samplesheet.py              # Auto-builds samplesheet.csv from a data directory
   run_pipeline.sh                       # Orchestrates full transformation outside Nextflow (hardcoded cluster paths)
+  test_incremental.sh                   # Two-phase bash test for incremental run behavior
   format_tsv.py                         # Extracts FUSION rows → data_sv.txt
   format_cna.py                         # Extracts DUPLICATION/DELETION rows → data_cna.txt (long format)
   format_mutations.py                  # Deanonymizes Tumor_Sample_Barcode in data_mutations.txt
@@ -129,6 +149,8 @@ bin/
   format_meta.py                        # Writes all cBioPortal meta_*.txt files for a study
 assets/
   schema_input.json              # JSON schema for samplesheet validation (nf-core template)
+  samplesheet.csv                # Test samplesheet: SAMPLE_001 + SAMPLE_002
+  samplesheet_sample1.csv        # Test samplesheet: SAMPLE_001 only (used in incremental test)
 nextflow.config                  # Process defaults, profiles, all pipeline params
 nextflow_schema.json             # Parameter schema for --help and validation
 ```
@@ -142,13 +164,14 @@ nextflow_schema.json             # Parameter schema for --help and validation
 4. `*-basespace-cnv.final.vcf` → VCF_TO_SEG → `_seg.txt` (PASS records only; seg.mean = log2(CN/2))
 
 **Downstream:**
-5. MERGE_SV / MERGE_CNA / MERGE_MUTATIONS / MERGE_SEG collect per-sample files into merged files
-6. DEANON_MUTATIONS / DEANON_SV / DEANON_CNA / DEANON_SEG replace anonymized IDs using linking file → `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_seg.txt`
-7. CLINICAL_PATIENTS + CLINICAL_SAMPLES write cBioPortal 5-line-header format files
-8. WRITE_CASE_LISTS generates `case_lists/` from deanonymized IDs in linking file
-9. WRITE_META writes cBioPortal study meta files (`meta_study.txt`, `meta_mutations.txt`, `meta_sv.txt`, `meta_cna.txt`, `meta_seg.txt`, `meta_clinical_patient.txt`, `meta_clinical_sample.txt`)
+5. Per-sample outputs are published to `{outdir}/samples/{sample_id}/` (`_sv.txt`, `_cna.txt`, `_seg.txt`, `_mutations.txt`); on re-runs samples with all four files present are skipped automatically
+6. MERGE_SV / MERGE_CNA / MERGE_MUTATIONS / MERGE_SEG collect per-sample files (new + existing) into merged files
+7. DEANON_MUTATIONS / DEANON_SV / DEANON_CNA / DEANON_SEG replace anonymized IDs using linking file → `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_seg.txt`
+8. CLINICAL_PATIENTS + CLINICAL_SAMPLES write cBioPortal 5-line-header format files
+9. WRITE_CASE_LISTS generates `case_lists/` from deanonymized IDs in linking file
+10. WRITE_META writes cBioPortal study meta files (`meta_study.txt`, `meta_mutations.txt`, `meta_sv.txt`, `meta_cna.txt`, `meta_seg.txt`, `meta_clinical_patient.txt`, `meta_clinical_sample.txt`)
 
-Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_seg.txt`, `data_clinical_patient.txt`, `data_clinical_sample.txt`, `case_lists/`
+Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_seg.txt`, `data_clinical_patient.txt`, `data_clinical_sample.txt`, `case_lists/`, `samples/` (per-sample cache)
 
 ## Key Implementation Notes
 
@@ -164,4 +187,4 @@ Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_seg.txt
 
 ## Development Status
 
-First stable release. The full Nextflow pipeline is functional end-to-end. All `bin/` scripts are implemented and used as Nextflow processes via `modules/local/processes.nf`. GitHub CI/CD, nf-test, MultiQC, and nf-core documentation were intentionally skipped from the nf-core template.
+The full Nextflow pipeline is functional end-to-end with incremental run support. All `bin/` scripts are implemented and used as Nextflow processes via `modules/local/`. Incremental behavior is tested via `bin/test_incremental.sh`. GitHub CI/CD, nf-test, MultiQC, and nf-core documentation were intentionally skipped from the nf-core template.

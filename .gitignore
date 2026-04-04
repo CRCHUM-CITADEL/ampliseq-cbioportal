@@ -17,3 +17,4 @@ test_results*
 test_results_passthrough
 nf.config
 samplesheet.csv
+test_incremental_results
