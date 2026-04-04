@@ -15,3 +15,5 @@ output*
 test_results_passthrough
 test_results*
 test_results_passthrough
+nf.config
+samplesheet.csv
