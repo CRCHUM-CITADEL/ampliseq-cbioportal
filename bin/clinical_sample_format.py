@@ -23,8 +23,8 @@ def transform_value(val):
     return val
 
 def main():
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <input_file>", file=sys.stderr)
+    if len(sys.argv) not in (2, 3):
+        print(f"Usage: {sys.argv[0]} <sample_file> [<linking_file>]", file=sys.stderr)
         sys.exit(1)
 
     df = pd.read_csv(sys.argv[1], sep="\t", dtype=str, usecols=range(8))
@@ -33,6 +33,11 @@ def main():
     df.columns = ["sample_id_drop", "sample_id", "patient_id", "cancer_type",
                   "cancer_type_detailed", "sample_type", "tumor_site", "tumor_purity"]
     df = df.drop(columns=["sample_id_drop"])
+
+    if len(sys.argv) == 3:
+        linking = pd.read_csv(sys.argv[2], sep="\t", dtype=str)
+        allowed = set(linking["deanon_sample_id"])
+        df = df[df["sample_id"].isin(allowed)]
 
     out = pd.DataFrame({
         "PATIENT_ID":            df["patient_id"],

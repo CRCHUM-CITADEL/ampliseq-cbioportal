@@ -31,6 +31,8 @@ SAMPLE_001	PATIENT_001
 
 **Sample file** (tab-separated): `num_id`, `sample_id`, `patient_id`, `cancer_type`, `cancer_type_detailed`, `sample_type`, `tumor_site`, `tumor_purity`
 
+> The `sample_id` column in the sample file must use the **deanonymized** (real) sample IDs — the same values that appear in the `deanon_sample_id` column of the linking file. Outputs are scoped to the samplesheet: only samples present in the samplesheet appear in `data_clinical_sample.txt`, `data_clinical_patient.txt`, and `case_lists/`, even if the sample file and patient file contain additional entries.
+
 ### 2. Run the pipeline
 
 ```bash
@@ -97,6 +99,6 @@ python3 /path/to/bin/format_sv.py        data_sv.txt           <linking_file>
 python3 /path/to/bin/format_cna_deanon.py data_cna.txt         <linking_file>
 python3 /path/to/bin/vcf_to_seg.py        <cnv.vcf>             <SAMPLE_ID>
 python3 /path/to/bin/seg_deanon.py        data_seg.txt          <linking_file>
-python3 /path/to/bin/clinical_patients_format.py <patient_file>
-python3 /path/to/bin/clinical_sample_format.py   <sample_file>
+python3 /path/to/bin/clinical_patients_format.py <patient_file> <sample_file> <linking_file>
+python3 /path/to/bin/clinical_sample_format.py   <sample_file> <linking_file>
 ```
