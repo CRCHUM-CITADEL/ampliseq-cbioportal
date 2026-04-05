@@ -23,9 +23,10 @@ Each sample folder must contain:
 
 **Linking file** (`linking_file.txt`, tab-separated) — maps anonymized → real IDs:
 ```
-sample_id	deanon_sample_id
-SAMPLE_001	PATIENT_001
+sample_id	deanon_sample_id	deanon_patient_id
+SAMPLE_001	PATIENT_001	PATIENT_001
 ```
+One patient may have multiple rows (one per sample). `deanon_patient_id` is used to filter `data_clinical_patient.txt` to only patients whose samples are in the samplesheet.
 
 **Patient file** (tab-separated): `patient_id`, `age`, `sex`, `os_status`, `os_months`, `smoking_history`
 
@@ -99,6 +100,6 @@ python3 /path/to/bin/format_sv.py        data_sv.txt           <linking_file>
 python3 /path/to/bin/format_cna_deanon.py data_cna.txt         <linking_file>
 python3 /path/to/bin/vcf_to_seg.py        <cnv.vcf>             <SAMPLE_ID>
 python3 /path/to/bin/seg_deanon.py        data_seg.txt          <linking_file>
-python3 /path/to/bin/clinical_patients_format.py <patient_file> <sample_file> <linking_file>
+python3 /path/to/bin/clinical_patients_format.py <patient_file> <linking_file>
 python3 /path/to/bin/clinical_sample_format.py   <sample_file> <linking_file>
 ```

@@ -12,7 +12,7 @@ workflow STUDY_METADATA {
     study_id          // val: study ID string
 
     main:
-    CLINICAL_PATIENTS(ch_patient_file, ch_sample_file, ch_linking)
+    CLINICAL_PATIENTS(ch_patient_file, ch_linking)
     CLINICAL_SAMPLES(ch_sample_file, ch_linking)
     WRITE_CASE_LISTS(ch_linking, study_id)
     WRITE_META(study_id)

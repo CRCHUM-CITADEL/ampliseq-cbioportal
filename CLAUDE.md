@@ -78,7 +78,7 @@ python3 /path/to/bin/format_sv.py       data_sv.txt         <linking_file> # dea
 python3 /path/to/bin/format_cna_deanon.py data_cna.txt      <linking_file> # deanonymizes in-place
 python3 /path/to/bin/vcf_to_seg.py     <cnv.vcf>            <SAMPLE_ID>   # appends to data_seg.txt
 python3 /path/to/bin/seg_deanon.py     data_seg.txt         <linking_file> # deanonymizes in-place
-python3 /path/to/bin/clinical_patients_format.py <patient_file> <sample_file> <linking_file>  # writes data_clinical_patient.txt (filtered to samplesheet patients)
+python3 /path/to/bin/clinical_patients_format.py <patient_file> <linking_file>                 # writes data_clinical_patient.txt (filtered to samplesheet patients)
 python3 /path/to/bin/clinical_sample_format.py   <sample_file> <linking_file>                 # writes data_clinical_sample.txt (filtered to samplesheet samples)
 python3 /path/to/bin/format_meta.py <study_id> [out_dir]                 # writes all meta_*.txt files
 ```
@@ -99,9 +99,10 @@ cohort_A,PATIENT_001,SAMPLE_001,assets/samples/SAMPLE_001
 
 **Linking file** (`linking_file.txt`) — tab-separated, maps anonymized → real IDs:
 ```
-sample_id	deanon_sample_id
-SAMPLE_001	PATIENT_001
+sample_id	deanon_sample_id	deanon_patient_id
+SAMPLE_001	PATIENT_001	PATIENT_001
 ```
+`deanon_sample_id` maps to the real sample ID used in clinical and data files. `deanon_patient_id` maps to the patient ID used in the patient clinical file. One patient may have multiple rows (multiple samples).
 
 **Patient file** — tab-separated: `patient_id`, `age`, `sex`, `os_status` (0/1), `os_months`, `smoking_history`
 
@@ -170,7 +171,7 @@ nextflow_schema.json             # Parameter schema for --help and validation
 7. MERGE_SV / MERGE_CNA / MERGE_MUTATIONS / MERGE_SEG collect per-sample files (new + existing) into merged files
 8. DEANON_MUTATIONS / DEANON_SV / DEANON_CNA / DEANON_SEG replace anonymized IDs using filtered linking file → `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_seg.txt`
 9. CLINICAL_SAMPLES writes `data_clinical_sample.txt` filtered to samples in the samplesheet (matched via `deanon_sample_id` in filtered linking)
-10. CLINICAL_PATIENTS writes `data_clinical_patient.txt` filtered to patients whose samples are in the samplesheet (via linking → sample file → patient IDs)
+10. CLINICAL_PATIENTS writes `data_clinical_patient.txt` filtered to patients whose `patient_id` appears in the filtered linking file's `deanon_patient_id` column
 11. WRITE_CASE_LISTS generates `case_lists/` from the filtered linking file (samplesheet samples only)
 12. WRITE_META writes cBioPortal study meta files (`meta_study.txt`, `meta_mutations.txt`, `meta_sv.txt`, `meta_cna.txt`, `meta_seg.txt`, `meta_clinical_patient.txt`, `meta_clinical_sample.txt`)
 
@@ -183,7 +184,7 @@ Output files: `data_mutations.txt`, `data_sv.txt`, `data_cna.txt`, `data_seg.txt
 - `data_cna.txt` is written in long format (Hugo_Symbol, Sample_Id, Value); `meta_cna.txt` declares `datatype: DISCRETE_LONG` so cBioPortal accepts this format directly — no pivot needed
 - The vcf2maf Apptainer container mounts `vep_data` as `/home/jbellavance/` inside the container
 - `clinical_sample_format.py <sample_file> <linking_file>` reads the first 8 columns of the sample file, filters rows to those whose `sample_id` is in the filtered linking file's `deanon_sample_id` column, and drops `num_id`; the `sample_id` column in the sample file must use the deanonymized (real) sample IDs — i.e. the same IDs that appear in `deanon_sample_id` of the linking file
-- `clinical_patients_format.py <patient_file> <sample_file> <linking_file>` filters the patient file to only patients whose samples appear in the samplesheet, using the chain: filtered linking → deanon_sample_ids → sample file → patient_ids
+- `clinical_patients_format.py <patient_file> <linking_file>` filters the patient file to only patients whose `patient_id` appears in the filtered linking file's `deanon_patient_id` column
 - All deanon scripts warn to stderr on unmatched IDs and leave them unchanged
 - `filter_tsv_variants` controls mutation filtering only: when `true` (default) mutations are filtered to TSV coordinates; when `false` all MAF mutations pass through unfiltered
 - `vcf_to_seg.py` reads `*-basespace-cnv.final.vcf`, keeps only PASS records, parses `END` from INFO (defaults to POS for point variants), reads integer `CN` from the FORMAT/sample columns, and computes `seg.mean = log2(CN/2)`; CN=0 yields −3.0 as a homozygous-deletion sentinel; `num.mark` is always 1 since ampliseq VCFs carry no probe-count information

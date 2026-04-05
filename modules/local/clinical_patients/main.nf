@@ -4,7 +4,6 @@ process CLINICAL_PATIENTS {
 
     input:
     path(patient_file)
-    path(sample_file)
     path(linking_file)
 
     output:
@@ -12,6 +11,6 @@ process CLINICAL_PATIENTS {
 
     script:
     """
-    clinical_patients_format.py ${patient_file} ${sample_file} ${linking_file}
+    clinical_patients_format.py ${patient_file} ${linking_file}
     """
 }
