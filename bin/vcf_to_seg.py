@@ -33,7 +33,7 @@ def main():
             if line.startswith('#CHROM'):
                 cols = line.strip().split('\t')
                 format_idx = cols.index('FORMAT')
-                sample_idx = format_idx + 1
+                sample_idx = cols.index('SAMPLE')
                 continue
 
             if format_idx is None:
@@ -62,25 +62,18 @@ def main():
                         break
 
             # Parse CN value from FORMAT/sample columns
-            fmt_fields = fmt.split(':')
-            sample_fields = sample.split(':')
-            if 'CN' not in fmt_fields:
-                print(f"WARNING: no CN field in FORMAT for {chrom}:{pos}, skipping", file=sys.stderr)
-                continue
-            cn_idx = fmt_fields.index('CN')
             try:
-                cn = int(sample_fields[cn_idx])
+                cn = int(sample)
             except (IndexError, ValueError):
                 print(f"WARNING: could not parse CN at {chrom}:{pos}, skipping", file=sys.stderr)
                 continue
 
+            ## Usually seg mean is this : 
             # seg.mean = log2(CN/2); CN=0 → homozygous deletion sentinel
-            if cn == 0:
-                seg_mean = -3.0
-            else:
-                seg_mean = round(math.log2(cn / 2), 4)
-
-            rows.append((sample_id, chrom, pos, end, 1, seg_mean))
+            # but we will just put the copy number for ampliseq data
+            seg_mean = cn
+            if seg_mean != 2:
+                rows.append((sample_id, chrom, pos, end, 1, seg_mean))
 
     write_header = not os.path.exists(out_file)
     with open(out_file, 'a') as out:

@@ -68,8 +68,8 @@ genetic_alteration_type: COPY_NUMBER_ALTERATION
 datatype: SEG
 stable_id: seg
 show_profile_in_analysis_tab: false
-profile_name: Segments (Copy Number)
-profile_description: Segment-level copy number data for {study_id}. seg.mean = log2(CN/2).
+name: Segments (Copy Number)
+description: Segment-level copy number data for {study_id}. seg.mean = log2(CN/2).
 data_filename: data_seg.txt
 reference_genome_id: hg19
 """,
