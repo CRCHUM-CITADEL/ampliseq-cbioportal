@@ -9,7 +9,12 @@ testing*
 null/
 *.sif
 test_results/
-test_results_vcf/
 .nf-test/
-test_results_passthrough/
-output*/
+samplesheet.csv
+output*
+test_results_passthrough
+test_results*
+test_results_passthrough
+nf.config
+samplesheet.csv
+test_incremental_results
