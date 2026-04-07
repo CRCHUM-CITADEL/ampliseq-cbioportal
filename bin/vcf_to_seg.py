@@ -53,6 +53,9 @@ def main():
             if filter_val != 'PASS':
                 continue
 
+            # remove 'chr' prefix
+            chrom = chrom[3:] if chrom.startswith('chr') else chrom
+
             # Parse END from INFO; fall back to POS for point variants
             end = pos
             if info != '.':
